@@ -65,17 +65,17 @@ Notification.Visible = false
 Topbar.Visible = false
 BombsLeftFrame.Visible = false
 
--- Animation config
-local ANIM_FADE_TIME = 0.15
-local ANIM_SCALE_TIME = 0.12
-local ANIM_MOVE_TIME = 0.15
-local ANIM_OFFSET = UDim2.new(0, 0, -0.05, 0)
-local NOTIFICATION_DURATION = 5
+-- Animation config (optimized for snappier feel)
+local ANIM_FADE_TIME = 0.08
+local ANIM_SCALE_TIME = 0.06
+local ANIM_MOVE_TIME = 0.08
+local ANIM_OFFSET = UDim2.new(0, 0, -0.03, 0)
+local NOTIFICATION_DURATION = 3
 
 -- Button animation config
 local BTN_HOVER_SCALE = 1.05
 local BTN_CLICK_SCALE = 0.95
-local BTN_TWEEN_TIME = 0.1
+local BTN_TWEEN_TIME = 0.06
 
 -- Wait for SoundManager
 local SoundManager
@@ -266,7 +266,7 @@ showPrimaryNotification = function(title, subtitle, duration)
 	if duration then
 		hidePrimaryThread = task.delay(duration, function()
 			hidePrimaryNotification()
-			task.wait(0.5)
+			task.wait(0.2)
 			processPrimaryQueue()
 		end)
 	end
@@ -297,7 +297,7 @@ showNotification = function(title, subtitle, duration)
 
 	hideNotificationThread = task.delay(duration or NOTIFICATION_DURATION, function()
 		hideNotification()
-		task.wait(0.5)
+		task.wait(0.2)
 		processNotificationQueue()
 	end)
 end
@@ -329,7 +329,7 @@ queueNotification = function(title, subtitle, duration)
 	if primaryVisible then
 		hidePrimaryNotification()
 		primaryQueue = {}
-		task.wait(0.5)
+		task.wait(0.15)
 	end
 
 	Topbar.Visible = true

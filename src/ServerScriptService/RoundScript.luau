@@ -30,9 +30,12 @@ QueueManager.Init(NetworkManager)
 local PLANTING_TIME = 90
 local DEFUSING_TIME = 90
 local ROUNDS_TO_WIN = 5
-local INTERMISSION_TIME = 10
-local MATCH_FOUND_TIME = 3
-local LOADOUT_TIME = 10
+local INTERMISSION_TIME = 5 -- Reduced for faster pacing
+local MATCH_FOUND_TIME = 2 -- Reduced for quicker start
+local LOADOUT_TIME = 5 -- Reduced for faster start
+local SWAP_TIME = 2 -- Swapping countdown
+local ROUND_END_DELAY = 1 -- Delay after round ends
+local GAME_OVER_DELAY = 3 -- Delay after game over
 local SOLO_MODE = false
 
 local MIN_PLAYERS = SOLO_MODE and 1 or 2
@@ -198,7 +201,7 @@ end
 
 -- Handle early round end
 local function handleEarlyEnd()
-	task.wait(2)
+	task.wait(ROUND_END_DELAY)
 	BombHandler.SetPhase("Ended")
 	disableFuseCutters()
 	MapManager.Cleanup()
@@ -216,7 +219,7 @@ local function handleEarlyEnd()
 
 	if teamAScore >= ROUNDS_TO_WIN or teamBScore >= ROUNDS_TO_WIN then
 		broadcastToMatch("GameOver", 0, teamAScore, teamBScore)
-		task.wait(5)
+		task.wait(GAME_OVER_DELAY)
 		resetGame()
 		return true
 	end
@@ -448,7 +451,7 @@ startRound = function()
 	end
 
 	-- Swapping phase with countdown (DON'T stop boundary check here)
-	for t = 3, 1, -1 do
+	for t = SWAP_TIME, 1, -1 do
 		broadcastToMatch("Swapping", t, teamAScore, teamBScore)
 		task.wait(1)
 	end
@@ -601,7 +604,7 @@ startRound = function()
 	print("[RoundScript] Round winner:", roundWinner)
 	print("[RoundScript] New score - A:", teamAScore, "B:", teamBScore)
 
-	task.wait(2)
+	task.wait(ROUND_END_DELAY)
 
 	BombHandler.SetPhase("Ended")
 	disableFuseCutters()
@@ -622,14 +625,14 @@ startRound = function()
 		print("[RoundScript] === BLUE TEAM WINS GAME ===")
 		broadcastToMatch("GameOver", 0, teamAScore, teamBScore)
 		recordGameEnd("A")
-		task.wait(5)
+		task.wait(GAME_OVER_DELAY)
 		resetGame()
 		return
 	elseif teamBScore >= ROUNDS_TO_WIN then
 		print("[RoundScript] === RED TEAM WINS GAME ===")
 		broadcastToMatch("GameOver", 0, teamAScore, teamBScore)
 		recordGameEnd("B")
-		task.wait(5)
+		task.wait(GAME_OVER_DELAY)
 		resetGame()
 		return
 	end

@@ -322,7 +322,7 @@ local function addFuseSound(mainPart)
 	return sound
 end
 
--- Anchor bomb after it settles
+-- Anchor bomb after it settles (optimized for faster response)
 local function anchorBombAfterSettle(bomb)
 	task.spawn(function()
 		local mainPart = bomb
@@ -332,15 +332,15 @@ local function anchorBombAfterSettle(bomb)
 		if not mainPart then return end
 
 		local startTime = tick()
-		local maxWaitTime = 3
+		local maxWaitTime = 1.5 -- Reduced from 3
 
 		while tick() - startTime < maxWaitTime do
-			task.wait(0.1)
+			task.wait(0.05) -- Faster polling
 			if not bomb or not bomb.Parent then return end
 
 			local velocity = mainPart.AssemblyLinearVelocity
 			if velocity.Magnitude < 0.5 then
-				task.wait(0.1)
+				task.wait(0.05)
 				break
 			end
 		end
@@ -739,7 +739,7 @@ _G.BombHandler.RemoveBombTools = function()
 		end
 	end
 
-	task.wait(0.2)
+	task.wait(0.1)
 	print("[BombHandler] === AFTER REMOVAL ===")
 	for _, player in Players:GetPlayers() do
 		local backpack = player:FindFirstChild("Backpack")
