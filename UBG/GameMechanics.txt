@@ -23,7 +23,8 @@ Gameplayer loop:
 1. Player 1, Player 2, Press Play
 2. Teleport into game map
 3. Start hiding bombs for 90 seconds or until all bombs are planted
-4. Swap maps, start finding and defusing bombs.
+4. Swap maps, start finding and defusing bombs. (90 Seconds)
+5. First to 5 (We need to change it to first to 3), Intermission lasts 5 seconds.
 
 Win condition:
 Player who defuses all bombs first
@@ -35,4 +36,5 @@ Or: Less bombs defused than other player by timer end
 
 General info:
 Currency name: Credits
+
 Currency value: Very high (Very low amount of credits are able to be gained per day)
