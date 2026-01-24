@@ -1,0 +1,38 @@
+Game name: Untitled Bomb Game
+Shortened name: UBG
+
+UBG is a Roblox game about hiding and finding bombs
+
+Info: Info.text
+Paths to UI, Bomb, Defuser (Fuse Cutter): Paths.txt
+
+Server:
+Max. Players: 12
+Style: Retro Roblox
+
+UI:
+In lobby:
+Screen top: Settings (Music volume, SFX volume, Name editor, Shadow toggle)
+Screen Bottom: Play, Tasks (Taskmanager), Shop (Work in progress, for future updates), Credit counter.
+
+In game:
+Screen top: Settings, Score (Red team, blue team), timer.
+Screen bottom: Inventory, Bombs left counter.
+
+Gameplayer loop:
+1. Player 1, Player 2, Press Play
+2. Teleport into game map
+3. Start hiding bombs for 90 seconds or until all bombs are planted
+4. Swap maps, start finding and defusing bombs.
+
+Win condition:
+Player who defuses all bombs first
+Or: Player who defused more bombs by timer end
+
+Lose condition:
+Player who didn't defuse bombs before other player didn
+Or: Less bombs defused than other player by timer end
+
+General info:
+Currency name: Credits
+Currency value: Very high (Very low amount of credits are able to be gained per day)

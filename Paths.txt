@@ -1,0 +1,238 @@
+# Paths.txt - Comprehensive list of all paths referenced in game scripts
+# Generated for Claude Code migration
+
+## SERVICES
+game:GetService("Players")
+game:GetService("Debris")
+game:GetService("ReplicatedStorage")
+game:GetService("ServerStorage")
+game:GetService("TweenService")
+game:GetService("StarterGui")
+game:GetService("UserInputService")
+game:GetService("RunService")
+game:GetService("SoundService")
+game:GetService("TextService")
+game:GetService("DataStoreService")
+game:GetService("ContentProvider")
+game:GetService("PhysicsService")
+game:GetService("BadgeService")
+game:GetService("Lighting")
+
+## REPLICATED STORAGE PATHS
+ReplicatedStorage:WaitForChild("ServerRequest")
+ReplicatedStorage:WaitForChild("ClientUpdate")
+ReplicatedStorage:WaitForChild("ClientNotify")
+ReplicatedStorage:WaitForChild("VPF")
+ReplicatedStorage:WaitForChild("VPF"):FindFirstChild("Bomb")
+ReplicatedStorage:WaitForChild("NameTag")
+ReplicatedStorage:WaitForChild("ChangeName")
+
+## SERVER STORAGE PATHS
+ServerStorage:WaitForChild("Bomb")
+ServerStorage:WaitForChild("Fuse Cutter")
+ServerStorage:WaitForChild("Maps")
+
+## WORKSPACE PATHS
+workspace
+workspace.CurrentCamera
+workspace:WaitForChild("Lobby")
+workspace:WaitForChild("Lobby"):WaitForChild("House")
+workspace:WaitForChild("Lobby"):WaitForChild("House"):WaitForChild("SpawnLocation")
+workspace:FindFirstChild("Lobby")
+workspace.Lobby:FindFirstChild("House")
+workspace.Lobby.House:FindFirstChild("FirstFloor")
+
+## SERVER SCRIPT SERVICE PATHS
+script.Parent (ServerScriptService)
+script.Parent:WaitForChild("Modules")
+script.Parent:WaitForChild("Modules"):WaitForChild("MapManager")
+script.Parent:WaitForChild("Modules"):WaitForChild("TeamManager")
+script.Parent:WaitForChild("Modules"):WaitForChild("SpawnManager")
+script.Parent:WaitForChild("Modules"):WaitForChild("QueueManager")
+
+## PLAYER PATHS
+LocalPlayer (Players.LocalPlayer)
+LocalPlayer:WaitForChild("PlayerGui")
+LocalPlayer:WaitForChild("PlayerScripts")
+LocalPlayer:WaitForChild("Backpack")
+LocalPlayer:FindFirstChild("Backpack")
+player.Character
+player.UserId
+player.Name
+player:FindFirstChild("Backpack")
+
+## CHARACTER PATHS
+script.Parent (for character scripts)
+char:WaitForChild("Humanoid")
+char:WaitForChild("HumanoidRootPart")
+char:WaitForChild("Head")
+character:FindFirstChild("Humanoid")
+character:FindFirstChild("HumanoidRootPart")
+character:FindFirstChild("Head")
+character:FindFirstChild("Bomb")
+character:FindFirstChild("Fuse Cutter")
+character:FindFirstChildWhichIsA("Tool")
+humanoid:FindFirstChildOfClass("Animator")
+
+## HEAD/NAMETAG PATHS
+head:WaitForChild("Head")
+head:FindFirstChild("NameTag")
+
+## PLAYER GUI PATHS
+PlayerGui:WaitForChild("GameUI")
+PlayerGui:WaitForChild("NTS")
+
+## GAME UI PATHS (StarterGui/GameUI)
+GameUI:WaitForChild("Topbar")
+GameUI:WaitForChild("PrimaryNotification")
+GameUI:WaitForChild("Notification")
+GameUI:WaitForChild("BombsLeft")
+GameUI:WaitForChild("Shop")
+GameUI:WaitForChild("Tasks")
+GameUI:WaitForChild("CreditCounter")
+GameUI:WaitForChild("Play")
+GameUI:FindFirstChild("CreditsTest")
+
+## TOPBAR PATHS
+Topbar:WaitForChild("BlueTeamCounter")
+Topbar:WaitForChild("Timer")
+Topbar:WaitForChild("RedTeamCounter")
+BlueTeamCounter:WaitForChild("PlayerIcon")
+BlueTeamCounter:WaitForChild("Score")
+Timer:WaitForChild("TimeLeft")
+RedTeamCounter:WaitForChild("PlayerIcon")
+RedTeamCounter:WaitForChild("Score")
+
+## NOTIFICATION PATHS
+PrimaryNotification:WaitForChild("Text")
+PrimaryNotification:WaitForChild("Subtext")
+PrimaryNotification:FindFirstChild("UIScale")
+Notification:WaitForChild("Text")
+Notification:WaitForChild("Subtext")
+Notification:FindFirstChild("UIScale")
+
+## BOMBS LEFT PATHS
+BombsLeftFrame:WaitForChild("BombsLeft")
+
+## CREDIT COUNTER PATHS
+CreditCounter:WaitForChild("CreditCount")
+
+## PLAY BUTTON PATHS
+PlayButton:WaitForChild("Label")
+
+## PANELS PATHS (StarterGui/Panels)
+script.Parent (Panels)
+Panels:FindFirstChild("Shop")
+Panels:FindFirstChild("Tasks")
+
+## TASKS PANEL PATHS
+TasksPanel:FindFirstChild("Task1Frame")
+TasksPanel:FindFirstChild("Task2Frame")
+TasksPanel:FindFirstChild("Task3Frame")
+Task1Frame:WaitForChild("Task1")
+Task1Frame:WaitForChild("Task1Progress")
+Task1Frame:WaitForChild("BTask1")
+Task1Frame:WaitForChild("BTask1Progress")
+Task2Frame:WaitForChild("Task2")
+Task2Frame:WaitForChild("Task2Progress")
+Task2Frame:WaitForChild("BTask2")
+Task2Frame:WaitForChild("BTask2Progress")
+Task3Frame:WaitForChild("Task3")
+Task3Frame:WaitForChild("Task3Progress")
+Task3Frame:WaitForChild("BTask3")
+Task3Frame:WaitForChild("BTask3Progress")
+
+## INVENTORY PATHS (StarterGui/Inventory)
+Inventory:WaitForChild("InvFrame1")
+Inventory:WaitForChild("InvFrame2")
+Inventory:WaitForChild("InvFrame3")
+Inventory:WaitForChild("InvFrame4")
+InvFrame1:WaitForChild("InvSlot1")
+InvFrame2:WaitForChild("InvSlot2")
+InvFrame3:WaitForChild("InvSlot3")
+InvFrame4:WaitForChild("InvSlot4")
+
+## NTS (Name Tag System) PATHS
+NTS:WaitForChild("Frame")
+Frame:WaitForChild("TextBox")
+Frame:WaitForChild("Cancel")
+Frame:WaitForChild("Enter")
+
+## PLAYER SCRIPTS PATHS
+script.Parent:WaitForChild("Icon")
+LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
+PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("CameraModule")
+CameraModule:WaitForChild("MouseLockController")
+MouseLockController:WaitForChild("BoundKeys")
+
+## MAP RELATED PATHS
+mapFolder:FindFirstChild("SpawnLocation")
+mapFolder:FindFirstChild("Spawn")
+map:GetDescendants()
+map:FindFirstChildWhichIsA("BasePart")
+
+## TOOL PATHS
+backpack:FindFirstChild("Bomb")
+backpack:FindFirstChild("Fuse Cutter")
+character:FindFirstChild("Bomb")
+character:FindFirstChild("Fuse Cutter")
+
+## PROXIMITY PROMPT PATHS
+mainPart:FindFirstChildWhichIsA("ProximityPrompt")
+
+## SOUND PATHS
+bombTemplate:FindFirstChild("Fuse")
+bombTemplate:FindFirstChild("Explode")
+rootPart:FindFirstChild("Running")
+
+## GLOBAL VARIABLES (_G)
+_G.NetworkManager
+_G.BombHandler
+_G.TaskManager
+_G.LoadoutManager
+_G.SoundManager
+
+## DATA STORE KEYS
+DataStoreService:GetDataStore("PlayerDisplayNames")
+DataStoreService:GetDataStore("PlayerData_v1")
+nameStore:GetAsync("user_" .. player.UserId)
+nameStore:SetAsync("user_" .. player.UserId, name)
+playerDataStore:GetAsync("Player_" .. userId)
+playerDataStore:SetAsync("Player_" .. userId, data)
+
+## ATTRIBUTE PATHS
+tool:GetAttribute("Enabled")
+tool:SetAttribute("Enabled", value)
+LocalPlayer:GetAttribute("GameUILoaded")
+LocalPlayer:SetAttribute("GameUILoaded", true)
+
+## MISC PATHS
+SoundService
+camera.FieldOfView
+Lighting.GlobalShadows
+StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+StarterGui:SetCore("ResetButtonCallback", false)
+SoundService:SetListener(Enum.ListenerType.ObjectPosition, rootPart)
+
+## SPECIAL INSTANCE PATHS
+Instance.new("UIScale")
+Instance.new("Folder")
+Instance.new("Part")
+Instance.new("SpecialMesh")
+Instance.new("ProximityPrompt")
+Instance.new("Explosion")
+Instance.new("Sound")
+Instance.new("Animator")
+Instance.new("Animation")
+Instance.new("RemoteEvent")
+
+## SCREEN GUI SETTINGS
+screenGui.ResetOnSpawn
+
+## NOTES FOR MIGRATION
+# - All WaitForChild calls may need timeout handling
+# - Check for nil values before accessing paths
+# - Ensure all parent-child relationships are established before accessing
+# - Global variables (_G) may need initialization order handling
+# - DataStore operations should have error handling
+# - Tool and character references need existence checks
