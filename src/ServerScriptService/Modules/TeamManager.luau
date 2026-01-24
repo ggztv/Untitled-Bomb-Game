@@ -53,9 +53,19 @@ function TeamManager.Assign(playerList)
 	return teamA, teamB
 end
 
--- Get teams (returns copies to prevent external modification)
+-- Get teams (returns the actual arrays - be careful not to modify them)
 function TeamManager.GetTeams()
 	return teamA, teamB
+end
+
+-- Get team for a specific player
+function TeamManager.GetPlayerTeam(player)
+	if table.find(teamA, player) then
+		return "A"
+	elseif table.find(teamB, player) then
+		return "B"
+	end
+	return nil
 end
 
 -- Check if player is in game

@@ -46,6 +46,7 @@ local initialBombCountB = 0
 local mapAFolder = nil
 local mapBFolder = nil
 local placementCooldowns = {}
+local matchPlayers = {} -- Players in current match (for targeted broadcasts)
 
 -- Anti-cheat state
 local realBombRegistry = {}
@@ -301,7 +302,8 @@ local function createExplosion(position)
 	explosion.DestroyJointRadiusPercent = 0
 	explosion.Parent = workspace
 
-	NetworkManager.SendToAll("BombExploded", {position = position})
+	-- Only notify players in the current match
+	NetworkManager.SendToPlayers(matchPlayers, "BombExploded", {position = position})
 end
 
 -- Add fuse sound to bomb
@@ -470,7 +472,8 @@ local function createBomb(position, owner, mapFolder)
 				TaskManager.RecordBombDefused(player)
 			end
 
-			NetworkManager.SendToAll("BombDefused", {position = mainPart.Position})
+			-- Only notify players in the current match
+			NetworkManager.SendToPlayers(matchPlayers, "BombDefused", {position = mainPart.Position})
 
 			Debris:AddItem(bomb, 0.5)
 			print("[BombHandler]", player.Name, "defused a bomb")
@@ -584,16 +587,19 @@ local function placeBombAtPosition(player, targetPosition, targetNormal)
 	local placed = countPlayerBombs(player)
 	if placed >= BOMBS_PER_PLAYER then
 		NetworkManager.Notify(player, "No bombs left!")
+		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
 		return false
 	end
 
 	local mapFolder = getEnemyMapFolder(player)
-	if not mapFolder then 
+	if not mapFolder then
 		NetworkManager.Notify(player, "Not on enemy map!")
+		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
 		return false
 	end
 
 	if not character:FindFirstChild("Bomb") then
+		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
 		return false
 	end
 
@@ -612,6 +618,7 @@ local function placeBombAtPosition(player, targetPosition, targetNormal)
 			local existingPos = getBombPosition(existingBomb)
 			if existingPos and (existingPos - spawnPos).Magnitude < BOMB_SIZE * 2 then
 				NetworkManager.Notify(player, "Too close to another bomb!")
+				NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
 				return false
 			end
 		end
@@ -625,7 +632,8 @@ local function placeBombAtPosition(player, targetPosition, targetNormal)
 
 	local bombPos = getBombPosition(bomb) or spawnPos
 
-	NetworkManager.SendToAll("BombPlaced", {position = bombPos})
+	-- Only notify players in the current match
+	NetworkManager.SendToPlayers(matchPlayers, "BombPlaced", {position = bombPos})
 	updateBombCount(player)
 	checkAllBombsPlanted()
 
@@ -671,6 +679,10 @@ end
 _G.BombHandler.SetTeams = function(tA, tB)
 	teamA = tA or {}
 	teamB = tB or {}
+end
+
+_G.BombHandler.SetMatchPlayers = function(players)
+	matchPlayers = players or {}
 end
 
 _G.BombHandler.SetPhase = function(phase)
@@ -857,6 +869,7 @@ _G.BombHandler.Reset = function()
 	currentPhase = "None"
 	mapAFolder = nil
 	mapBFolder = nil
+	matchPlayers = {}
 
 	for _, player in Players:GetPlayers() do
 		local backpack = player:FindFirstChild("Backpack")

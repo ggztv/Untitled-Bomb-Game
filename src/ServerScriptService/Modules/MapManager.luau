@@ -5,16 +5,29 @@ local MapManager = {}
 
 local mapsFolder = ServerStorage:WaitForChild("Maps")
 local availableMaps = {}
+
+-- Config
+local MAP_OFFSET = 750 -- Distance from origin
+local MAP_SPACING = 750 -- Distance between maps
+local MAP_HEIGHT = 100
+local MAX_CONCURRENT_MATCHES = 6
+
+-- Grid state: tracks active matches by slot
+-- Grid layout (X = column for MapA/MapB, Z = row for match):
+-- Match 0: MapA at (750, 100, 750), MapB at (1500, 100, 750)
+-- Match 1: MapA at (750, 100, 1500), MapB at (1500, 100, 1500)
+-- etc.
+local activeMatches = {} -- matchId -> {mapA, mapB, spawnA, spawnB, gridRow}
+local usedGridRows = {} -- gridRow -> matchId
+
+-- Legacy single-match support (for backwards compatibility)
 local currentMapA = nil
 local currentMapB = nil
 local preloadedMapA = nil
 local preloadedMapB = nil
 local mapASpawnPos = nil
 local mapBSpawnPos = nil
-
--- Config
-local MAP_SPACING = 500
-local MAP_HEIGHT = 100
+local currentMatchId = nil
 
 -- Load available maps
 for _, map in mapsFolder:GetChildren() do
@@ -76,11 +89,151 @@ local function findSpawnInMap(map)
 	return Vector3.new(0, MAP_HEIGHT, 0)
 end
 
--- Calculate map position
-local function getMapPosition(index)
-	local x = (index - 1) * MAP_SPACING
-	return Vector3.new(x, MAP_HEIGHT, 0)
+-- Calculate grid position for a map
+-- gridRow: which match row (0-5)
+-- column: 0 for MapA, 1 for MapB
+local function getGridPosition(gridRow, column)
+	local x = MAP_OFFSET + (column * MAP_SPACING)
+	local z = MAP_OFFSET + (gridRow * MAP_SPACING)
+	return Vector3.new(x, MAP_HEIGHT, z)
 end
+
+-- Find next available grid row
+local function findAvailableGridRow()
+	for row = 0, MAX_CONCURRENT_MATCHES - 1 do
+		if not usedGridRows[row] then
+			return row
+		end
+	end
+	return nil -- No available slots
+end
+
+-- Position a map at given position
+local function positionMap(map, position)
+	if map:IsA("Model") then
+		map:PivotTo(CFrame.new(position))
+	else
+		-- For folder-based maps, move all parts
+		local firstPart = map:FindFirstChildWhichIsA("BasePart", true)
+		local offset = position
+		if firstPart then
+			offset = position - firstPart.Position
+		end
+		for _, part in map:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.Position = part.Position + offset
+			end
+		end
+	end
+end
+
+-- Generate unique match ID
+local matchIdCounter = 0
+local function generateMatchId()
+	matchIdCounter += 1
+	return "match_" .. matchIdCounter
+end
+
+--[[ ==================== MULTI-MATCH API ==================== ]]--
+
+-- Create a new match with maps placed on the grid
+-- Returns matchId or nil if no slots available
+function MapManager.CreateMatch()
+	local gridRow = findAvailableGridRow()
+	if not gridRow then
+		warn("[MapManager] No available grid slots for new match!")
+		return nil
+	end
+
+	-- Pick two different maps
+	local mapATemplate = getRandomMap(nil)
+	local mapBTemplate = getRandomMap(mapATemplate)
+
+	-- Clone maps
+	local mapA = mapATemplate:Clone()
+	local mapB = mapBTemplate:Clone()
+
+	-- Calculate positions
+	local posA = getGridPosition(gridRow, 0)
+	local posB = getGridPosition(gridRow, 1)
+
+	-- Position maps
+	positionMap(mapA, posA)
+	positionMap(mapB, posB)
+
+	-- Parent to workspace
+	mapA.Parent = workspace
+	mapB.Parent = workspace
+
+	-- Find spawn positions
+	local spawnA = findSpawnInMap(mapA)
+	local spawnB = findSpawnInMap(mapB)
+
+	-- Generate match ID and store
+	local matchId = generateMatchId()
+	activeMatches[matchId] = {
+		mapA = mapA,
+		mapB = mapB,
+		spawnA = spawnA,
+		spawnB = spawnB,
+		gridRow = gridRow
+	}
+	usedGridRows[gridRow] = matchId
+
+	print("[MapManager] Created match", matchId, "at grid row", gridRow)
+	print("[MapManager] MapA:", mapA.Name, "at", posA, "| MapB:", mapB.Name, "at", posB)
+
+	return matchId
+end
+
+-- Get maps for a specific match
+function MapManager.GetMatchMaps(matchId)
+	local match = activeMatches[matchId]
+	if not match then return nil, nil end
+	return match.mapA, match.mapB
+end
+
+-- Get spawn positions for a specific match
+function MapManager.GetMatchSpawnPositions(matchId)
+	local match = activeMatches[matchId]
+	if not match then return nil, nil end
+	return match.spawnA, match.spawnB
+end
+
+-- Cleanup a specific match
+function MapManager.CleanupMatch(matchId)
+	local match = activeMatches[matchId]
+	if not match then return end
+
+	if match.mapA and match.mapA.Parent then
+		match.mapA:Destroy()
+	end
+	if match.mapB and match.mapB.Parent then
+		match.mapB:Destroy()
+	end
+
+	usedGridRows[match.gridRow] = nil
+	activeMatches[matchId] = nil
+
+	print("[MapManager] Cleaned up match", matchId)
+end
+
+-- Get active match count
+function MapManager.GetActiveMatchCount()
+	local count = 0
+	for _ in activeMatches do
+		count += 1
+	end
+	return count
+end
+
+-- Check if more matches can be created
+function MapManager.CanCreateMatch()
+	return findAvailableGridRow() ~= nil
+end
+
+--[[ ==================== LEGACY SINGLE-MATCH API ==================== ]]--
+-- (Backwards compatible with existing RoundScript)
 
 -- Preload maps (clone but don't parent yet)
 function MapManager.Preload()
@@ -98,37 +251,27 @@ function MapManager.Preload()
 	print("[MapManager] Preloaded maps:", preloadedMapA.Name, preloadedMapB.Name)
 end
 
--- Place preloaded maps in workspace
+-- Place preloaded maps in workspace (uses grid system)
 function MapManager.Place()
 	if not preloadedMapA or not preloadedMapB then
 		warn("[MapManager] No preloaded maps! Preloading now...")
 		MapManager.Preload()
 	end
 
+	-- Find available grid row
+	local gridRow = findAvailableGridRow()
+	if not gridRow then
+		warn("[MapManager] No available grid slots!")
+		gridRow = 0 -- Fallback to row 0
+	end
+
+	-- Calculate positions using grid
+	local posA = getGridPosition(gridRow, 0)
+	local posB = getGridPosition(gridRow, 1)
+
 	-- Position maps
-	local posA = getMapPosition(1)
-	local posB = getMapPosition(2)
-
-	if preloadedMapA:IsA("Model") then
-		preloadedMapA:PivotTo(CFrame.new(posA))
-	else
-		-- For folder-based maps, move all parts
-		for _, part in preloadedMapA:GetDescendants() do
-			if part:IsA("BasePart") then
-				part.Position = part.Position + posA
-			end
-		end
-	end
-
-	if preloadedMapB:IsA("Model") then
-		preloadedMapB:PivotTo(CFrame.new(posB))
-	else
-		for _, part in preloadedMapB:GetDescendants() do
-			if part:IsA("BasePart") then
-				part.Position = part.Position + posB
-			end
-		end
-	end
+	positionMap(preloadedMapA, posA)
+	positionMap(preloadedMapB, posB)
 
 	-- Parent to workspace
 	preloadedMapA.Parent = workspace
@@ -142,36 +285,51 @@ function MapManager.Place()
 	mapASpawnPos = findSpawnInMap(currentMapA)
 	mapBSpawnPos = findSpawnInMap(currentMapB)
 
+	-- Generate match ID and register
+	currentMatchId = generateMatchId()
+	activeMatches[currentMatchId] = {
+		mapA = currentMapA,
+		mapB = currentMapB,
+		spawnA = mapASpawnPos,
+		spawnB = mapBSpawnPos,
+		gridRow = gridRow
+	}
+	usedGridRows[gridRow] = currentMatchId
+
 	-- Clear preloaded references
 	preloadedMapA = nil
 	preloadedMapB = nil
 
-	print("[MapManager] Placed maps - SpawnA:", mapASpawnPos, "SpawnB:", mapBSpawnPos)
+	print("[MapManager] Placed maps at grid row", gridRow)
+	print("[MapManager] SpawnA:", mapASpawnPos, "SpawnB:", mapBSpawnPos)
 end
 
--- Get spawn positions
+-- Get spawn positions (legacy)
 function MapManager.GetSpawnPositions()
 	return mapASpawnPos, mapBSpawnPos
 end
 
--- Get current maps
+-- Get current maps (legacy)
 function MapManager.GetMaps()
 	return currentMapA, currentMapB
 end
 
--- Cleanup current maps
+-- Get current match ID
+function MapManager.GetCurrentMatchId()
+	return currentMatchId
+end
+
+-- Cleanup current maps (legacy)
 function MapManager.Cleanup()
-	if currentMapA and currentMapA.Parent then
-		currentMapA:Destroy()
-	end
-	if currentMapB and currentMapB.Parent then
-		currentMapB:Destroy()
+	if currentMatchId then
+		MapManager.CleanupMatch(currentMatchId)
 	end
 
 	currentMapA = nil
 	currentMapB = nil
 	mapASpawnPos = nil
 	mapBSpawnPos = nil
+	currentMatchId = nil
 
 	print("[MapManager] Cleaned up maps")
 end
@@ -202,5 +360,5 @@ function MapManager.GetMapNames()
 	return names
 end
 
-print("[MapManager] Loaded")
+print("[MapManager] Loaded with grid support (offset:", MAP_OFFSET, "spacing:", MAP_SPACING, ")")
 return MapManager

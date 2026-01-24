@@ -76,11 +76,22 @@ local function broadcastToAll(phase, timeLeft, scoreA, scoreB)
 	})
 end
 
--- Broadcast team info
+-- Broadcast team info (sends each player their team designation)
 local function broadcastTeams()
 	local teamA, teamB = TeamManager.GetTeams()
 	print("[RoundScript] Broadcasting teams - A:", #teamA, "B:", #teamB)
-	NetworkManager.SendToPlayers(matchPlayers, "Team", {teamA = teamA, teamB = teamB})
+
+	-- Send team data with player's own team designation
+	for _, player in matchPlayers do
+		if player and player.Parent then
+			local playerTeam = TeamManager.GetPlayerTeam(player)
+			NetworkManager.SendToClient(player, "Team", {
+				teamA = teamA,
+				teamB = teamB,
+				yourTeam = playerTeam -- "A" or "B"
+			})
+		end
+	end
 end
 
 -- Enable Fuse Cutters
@@ -169,7 +180,7 @@ local function resetGame()
 	local oldMatchPlayers = matchPlayers
 	matchPlayers = {}
 
-	QueueManager.SetMatchInProgress(false)
+	QueueManager.DecrementMatchCount()
 
 	for _, player in oldMatchPlayers do
 		if player and player.Parent then
@@ -264,12 +275,17 @@ end
 
 -- Match found callback
 local function onMatchFound(queuedPlayers)
-	if gameStarted or QueueManager.IsMatchInProgress() then
-		print("[RoundScript] Match already in progress, ignoring")
+	if gameStarted then
+		print("[RoundScript] This match instance already started, ignoring")
 		return
 	end
 
-	QueueManager.SetMatchInProgress(true)
+	if not QueueManager.CanStartNewMatch() then
+		print("[RoundScript] No available match slots")
+		return
+	end
+
+	QueueManager.IncrementMatchCount()
 
 	print("[RoundScript] Match found with", #queuedPlayers, "players")
 
@@ -277,6 +293,14 @@ local function onMatchFound(queuedPlayers)
 
 	MapManager.Preload()
 	MapManager.Place()
+
+	-- Get match ID and assign players to this match
+	local currentMatchId = MapManager.GetCurrentMatchId()
+	for _, player in matchPlayers do
+		if player and player.Parent then
+			QueueManager.AssignPlayerToMatch(player, currentMatchId)
+		end
+	end
 
 	local mapA, mapB = MapManager.GetMaps()
 	BombHandler.SetMaps(mapA, mapB)
@@ -289,7 +313,7 @@ local function onMatchFound(queuedPlayers)
 
 		if QueueManager.GetQueueCount() < MIN_PLAYERS then
 			MapManager.Cleanup()
-			QueueManager.SetMatchInProgress(false)
+			QueueManager.DecrementMatchCount()
 			QueueManager.NotifyPlayersGameEnded(matchPlayers)
 			matchPlayers = {}
 			return
@@ -325,7 +349,7 @@ local function onMatchFound(queuedPlayers)
 
 			if QueueManager.GetQueueCount() < MIN_PLAYERS then
 				MapManager.Cleanup()
-				QueueManager.SetMatchInProgress(false)
+				QueueManager.DecrementMatchCount()
 				QueueManager.NotifyPlayersGameEnded(matchPlayers)
 				matchPlayers = {}
 				return
@@ -380,6 +404,7 @@ startRound = function()
 	end)
 
 	BombHandler.SetTeams(teamA, teamB)
+	BombHandler.SetMatchPlayers(matchPlayers)
 	broadcastTeams()
 
 	if not TeamManager.HasEnoughPlayers() then

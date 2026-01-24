@@ -7,7 +7,11 @@ local NetworkManager = nil
 local queue = {}
 local minPlayers = 2
 local matchFoundCallback = nil
-local matchInProgress = false
+
+-- Multi-match support
+local MAX_CONCURRENT_MATCHES = 6
+local activeMatchCount = 0
+local playerMatchAssignments = {} -- player -> matchId
 
 function QueueManager.Init(networkManager)
 	NetworkManager = networkManager
@@ -46,13 +50,39 @@ function QueueManager.IsInQueue(player)
 	return table.find(queue, player) ~= nil
 end
 
-function QueueManager.IsMatchInProgress()
-	return matchInProgress
+-- Multi-match functions
+function QueueManager.GetActiveMatchCount()
+	return activeMatchCount
 end
 
-function QueueManager.SetMatchInProgress(inProgress)
-	matchInProgress = inProgress
-	print("[QueueManager] Match in progress:", inProgress)
+function QueueManager.CanStartNewMatch()
+	return activeMatchCount < MAX_CONCURRENT_MATCHES
+end
+
+function QueueManager.IncrementMatchCount()
+	activeMatchCount += 1
+	print("[QueueManager] Active matches:", activeMatchCount)
+end
+
+function QueueManager.DecrementMatchCount()
+	activeMatchCount = math.max(0, activeMatchCount - 1)
+	print("[QueueManager] Active matches:", activeMatchCount)
+end
+
+function QueueManager.AssignPlayerToMatch(player, matchId)
+	playerMatchAssignments[player] = matchId
+end
+
+function QueueManager.GetPlayerMatch(player)
+	return playerMatchAssignments[player]
+end
+
+function QueueManager.ClearPlayerMatch(player)
+	playerMatchAssignments[player] = nil
+end
+
+function QueueManager.IsPlayerInMatch(player)
+	return playerMatchAssignments[player] ~= nil
 end
 
 local function broadcastToQueue(status, data)
@@ -64,6 +94,11 @@ local function broadcastToQueue(status, data)
 end
 
 function QueueManager.AddToQueue(player)
+	-- Don't allow joining queue if already in a match
+	if QueueManager.IsPlayerInMatch(player) then
+		return false
+	end
+
 	if table.find(queue, player) then
 		return false
 	end
@@ -73,7 +108,8 @@ function QueueManager.AddToQueue(player)
 
 	NetworkManager.SendToClient(player, "Queue", {status = "joined", count = #queue})
 
-	if not matchInProgress and #queue >= minPlayers and matchFoundCallback then
+	-- Check if we can start a match (enough players AND slot available)
+	if QueueManager.CanStartNewMatch() and #queue >= minPlayers and matchFoundCallback then
 		matchFoundCallback(queue)
 	end
 
@@ -103,9 +139,26 @@ function QueueManager.ClearQueue()
 	queue = {}
 end
 
+-- Take players from queue for a match (returns and removes them)
+function QueueManager.TakePlayersForMatch(count)
+	local taken = {}
+	count = math.min(count, #queue)
+
+	for i = 1, count do
+		local player = table.remove(queue, 1)
+		if player and player.Parent then
+			table.insert(taken, player)
+			NetworkManager.SendToClient(player, "Queue", {status = "started"})
+		end
+	end
+
+	return taken
+end
+
 function QueueManager.NotifyPlayersGameEnded(players)
 	for _, player in players do
 		if player and player.Parent then
+			QueueManager.ClearPlayerMatch(player)
 			NetworkManager.SendToClient(player, "Queue", {status = "ended"})
 		end
 	end
@@ -126,15 +179,17 @@ function QueueManager.NotifyCountdown(seconds)
 end
 
 function QueueManager.CheckQueue()
-	if not matchInProgress and #queue >= minPlayers and matchFoundCallback then
-		print("[QueueManager] Queue has enough players, starting match")
+	-- Check if we can start a new match
+	if QueueManager.CanStartNewMatch() and #queue >= minPlayers and matchFoundCallback then
+		print("[QueueManager] Queue has enough players and slot available, starting match")
 		matchFoundCallback(queue)
 	end
 end
 
 Players.PlayerRemoving:Connect(function(player)
 	QueueManager.RemoveFromQueue(player)
+	QueueManager.ClearPlayerMatch(player)
 end)
 
-print("[QueueManager] Loaded")
+print("[QueueManager] Loaded with multi-match support (max:", MAX_CONCURRENT_MATCHES, ")")
 return QueueManager
