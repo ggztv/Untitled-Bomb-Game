@@ -29,7 +29,7 @@ QueueManager.Init(NetworkManager)
 -- Config
 local PLANTING_TIME = 90
 local DEFUSING_TIME = 90
-local ROUNDS_TO_WIN = 5
+local ROUNDS_TO_WIN = 3
 local INTERMISSION_TIME = 5 -- Reduced for faster pacing
 local MATCH_FOUND_TIME = 2 -- Reduced for quicker start
 local LOADOUT_TIME = 5 -- Reduced for faster start

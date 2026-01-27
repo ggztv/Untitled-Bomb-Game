@@ -24,7 +24,8 @@ end)
 -- Config
 local BOMBS_PER_PLAYER = 3
 local DEFUSE_TIME = 7
-local EXPLOSION_RADIUS = 15
+local EXPLOSION_RADIUS = 25
+local EXPLOSION_DAMAGE = 200 -- Instant kill (most humanoids have 100 HP)
 local BOMB_PLACE_RANGE = 12
 local FUSE_SOUND_RANGE = 150
 local FUSE_SOUND_VOLUME = 0.3
@@ -377,8 +378,30 @@ local function createExplosion(position)
 	local explosion = Instance.new("Explosion")
 	explosion.Position = position
 	explosion.BlastRadius = EXPLOSION_RADIUS
-	explosion.BlastPressure = 0
-	explosion.DestroyJointRadiusPercent = 0
+	explosion.BlastPressure = 500 -- Add some knockback
+	explosion.DestroyJointRadiusPercent = 0 -- Don't break joints, we handle damage manually
+
+	-- Track which characters we've already damaged to prevent double-hits
+	local damagedCharacters = {}
+
+	explosion.Hit:Connect(function(part, distance)
+		local character = part:FindFirstAncestorOfClass("Model")
+		if not character then return end
+		if damagedCharacters[character] then return end
+
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if not humanoid then return end
+
+		-- Mark as damaged
+		damagedCharacters[character] = true
+
+		-- Calculate damage based on distance (full damage at center, less at edges)
+		local damageMultiplier = 1 - (distance / EXPLOSION_RADIUS)
+		local damage = EXPLOSION_DAMAGE * math.max(damageMultiplier, 0.5) -- Min 50% damage
+
+		humanoid:TakeDamage(damage)
+	end)
+
 	explosion.Parent = workspace
 
 	-- Only notify players in the current match

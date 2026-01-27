@@ -151,13 +151,13 @@ end
 ClientUpdate.OnClientEvent:Connect(function(action, data)
 	if action == "Round" then
 		local phase = data.phase
-		if phase == "Waiting" or phase == "Intermission" then
+		if phase == "Waiting" then
 			playMusic(LOBBY_MUSIC)
-		elseif phase == "Planting" or phase == "Defusing" then
+		elseif phase == "Loadout" or phase == "Planting" or phase == "Swapping" or phase == "Defusing" or phase == "Intermission" then
 			playMusic(GAME_MUSIC)
 		elseif phase == "GameOver" then
 			playSFX("RoundEnd")
-			stopMusic()
+			playMusic(LOBBY_MUSIC) -- Return to lobby music after game ends
 		end
 	elseif action == "Queue" then
 		if data.status == "found" then
