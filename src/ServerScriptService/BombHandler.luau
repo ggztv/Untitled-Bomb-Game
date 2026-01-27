@@ -65,7 +65,10 @@ local explodeSound = bombTemplate:FindFirstChild("Explode")
 
 -- Animation helper: scale bomb visually (uses mesh scale to keep hitbox unchanged)
 local function animateBombScale(bomb, fromScale, toScale, duration, callback)
-	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	-- Use Back easing for scale up (pop effect), Quad for scale down (smooth shrink)
+	local easingStyle = fromScale < toScale and Enum.EasingStyle.Back or Enum.EasingStyle.Quad
+	local easingDir = fromScale < toScale and Enum.EasingDirection.Out or Enum.EasingDirection.In
+	local tweenInfo = TweenInfo.new(duration, easingStyle, easingDir)
 	local tweens = {}
 
 	local function getPartsWithMeshes(instance)
@@ -120,10 +123,15 @@ local function animateBombScale(bomb, fromScale, toScale, duration, callback)
 		end
 	end
 
-	if callback and #tweens > 0 then
-		tweens[1].Completed:Connect(callback)
-	elseif callback then
-		task.delay(duration, callback)
+	-- Always wait for animation to complete before callback
+	if callback then
+		if #tweens > 0 then
+			tweens[1].Completed:Wait()
+			callback()
+		else
+			task.wait(duration)
+			callback()
+		end
 	end
 
 	return tweens
@@ -560,11 +568,13 @@ local function createBomb(position, owner, mapFolder)
 			-- Only notify players in the current match
 			NetworkManager.SendToPlayers(matchPlayers, "BombDefused", {position = mainPart.Position})
 
-			-- Animate scale down then destroy
-			animateBombScale(bomb, 1, 0, DEFUSE_ANIM_TIME, function()
-				if bomb and bomb.Parent then
-					bomb:Destroy()
-				end
+			-- Animate scale down then destroy (non-blocking)
+			task.spawn(function()
+				animateBombScale(bomb, 1, 0, DEFUSE_ANIM_TIME, function()
+					if bomb and bomb.Parent then
+						bomb:Destroy()
+					end
+				end)
 			end)
 
 			print("[BombHandler]", player.Name, "defused a bomb")

@@ -10,6 +10,8 @@ local lobbyEnabled = true
 local playersInMatch = {}
 local playerMapAssignments = {}
 local boundaryCheckConnection = nil
+local playerLastGoodPositions = {} -- Track last valid position for each player
+local playerFullySpawned = {} -- Track if player has been fully spawned at their map
 
 -- Initialize
 function SpawnManager.Init(spawn)
@@ -39,12 +41,16 @@ end
 -- Clear player map assignment
 function SpawnManager.ClearPlayerAssignment(player)
 	playerMapAssignments[player] = nil
+	playerLastGoodPositions[player] = nil
+	playerFullySpawned[player] = nil
 end
 
 -- Clear all assignments
 function SpawnManager.ClearAllAssignments()
 	playerMapAssignments = {}
 	playersInMatch = {}
+	playerLastGoodPositions = {}
+	playerFullySpawned = {}
 end
 
 -- Get map bounds
@@ -83,6 +89,32 @@ local function isWithinBounds(position, bounds)
 		and position.Z >= bounds.min.Z and position.Z <= bounds.max.Z
 end
 
+-- Calculate position 5 studs closer to spawn
+local function getPositionTowardSpawn(currentPos, spawnPos, distance)
+	local direction = (spawnPos - currentPos).Unit
+	-- Handle case where positions are the same
+	if direction ~= direction then -- NaN check
+		return spawnPos
+	end
+	return currentPos + direction * distance
+end
+
+-- Mark player as fully spawned (call after teleporting to spawn)
+function SpawnManager.MarkPlayerFullySpawned(player)
+	playerFullySpawned[player] = true
+	-- Initialize last good position to spawn
+	local assignment = playerMapAssignments[player]
+	if assignment and assignment.spawn then
+		playerLastGoodPositions[player] = assignment.spawn
+	end
+end
+
+-- Clear fully spawned flag
+function SpawnManager.ClearPlayerFullySpawned(player)
+	playerFullySpawned[player] = nil
+	playerLastGoodPositions[player] = nil
+end
+
 -- Start boundary checking
 function SpawnManager.StartBoundaryCheck()
 	if boundaryCheckConnection then return end
@@ -92,6 +124,9 @@ function SpawnManager.StartBoundaryCheck()
 			if not player or not player.Parent then continue end
 			if not assignment or not assignment.map then continue end
 
+			-- Only check if player has been fully spawned
+			if not playerFullySpawned[player] then continue end
+
 			local character = player.Character
 			if not character then continue end
 
@@ -99,9 +134,21 @@ function SpawnManager.StartBoundaryCheck()
 			if not rootPart then continue end
 
 			local bounds = getMapBounds(assignment.map)
-			if not isWithinBounds(rootPart.Position, bounds) then
-				print("[SpawnManager]", player.Name, "left map bounds, teleporting back")
-				rootPart.CFrame = CFrame.new(assignment.spawn + Vector3.new(0, 5, 0))
+			local currentPos = rootPart.Position
+
+			if isWithinBounds(currentPos, bounds) then
+				-- Player is within bounds, update last good position
+				playerLastGoodPositions[player] = currentPos
+			else
+				-- Player left bounds, teleport to last good position but 5 studs closer to spawn
+				local lastGoodPos = playerLastGoodPositions[player] or assignment.spawn
+				local teleportPos = getPositionTowardSpawn(lastGoodPos, assignment.spawn, 5)
+
+				print("[SpawnManager]", player.Name, "left map bounds, teleporting to last position (5 studs toward spawn)")
+				rootPart.CFrame = CFrame.new(teleportPos + Vector3.new(0, 3, 0))
+
+				-- Update last good position to teleport location
+				playerLastGoodPositions[player] = teleportPos
 			end
 		end
 	end)
@@ -222,6 +269,9 @@ function SpawnManager.SpawnTeamAt(team, position, teamName, mapFolder)
 		if humanoid then
 			humanoid.Health = humanoid.MaxHealth
 		end
+
+		-- Mark player as fully spawned for boundary checking
+		SpawnManager.MarkPlayerFullySpawned(player)
 	end
 end
 
@@ -254,11 +304,18 @@ local function onCharacterAdded(player, character)
 	if SpawnManager.IsPlayerInMatch(player) then
 		local assignment = playerMapAssignments[player]
 		if assignment and assignment.spawn then
+			-- Clear fully spawned flag during respawn to prevent boundary check during teleport
+			playerFullySpawned[player] = nil
+
 			task.wait(0.1)
 			local rootPart = character:FindFirstChild("HumanoidRootPart")
 			if rootPart then
 				rootPart.CFrame = CFrame.new(assignment.spawn + Vector3.new(0, 5, 0))
 			end
+
+			-- Re-mark as fully spawned after teleport
+			task.wait(0.1)
+			SpawnManager.MarkPlayerFullySpawned(player)
 		end
 	end
 end
@@ -276,6 +333,8 @@ end
 local function onPlayerRemoving(player)
 	playersInMatch[player] = nil
 	playerMapAssignments[player] = nil
+	playerLastGoodPositions[player] = nil
+	playerFullySpawned[player] = nil
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
