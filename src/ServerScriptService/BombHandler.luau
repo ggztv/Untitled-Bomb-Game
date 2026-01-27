@@ -3,6 +3,11 @@ local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
+
+-- Animation config
+local PLACE_ANIM_TIME = 0.15
+local DEFUSE_ANIM_TIME = 0.12
 
 -- Wait for NetworkManager
 repeat task.wait() until _G.NetworkManager
@@ -57,6 +62,72 @@ local decoys = {}
 local bombTemplate = ServerStorage:WaitForChild("Bomb")
 local fuseSound = bombTemplate:FindFirstChild("Fuse")
 local explodeSound = bombTemplate:FindFirstChild("Explode")
+
+-- Animation helper: scale bomb visually (uses mesh scale to keep hitbox unchanged)
+local function animateBombScale(bomb, fromScale, toScale, duration, callback)
+	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local tweens = {}
+
+	local function getPartsWithMeshes(instance)
+		local parts = {}
+		if instance:IsA("BasePart") then
+			local mesh = instance:FindFirstChildWhichIsA("DataModelMesh")
+			if mesh then
+				table.insert(parts, {part = instance, mesh = mesh})
+			end
+		end
+		for _, child in instance:GetDescendants() do
+			if child:IsA("BasePart") then
+				local mesh = child:FindFirstChildWhichIsA("DataModelMesh")
+				if mesh then
+					table.insert(parts, {part = child, mesh = mesh})
+				end
+			end
+		end
+		return parts
+	end
+
+	local partsWithMeshes = getPartsWithMeshes(bomb)
+
+	-- If no meshes found, use transparency animation as fallback
+	if #partsWithMeshes == 0 then
+		local parts = {}
+		if bomb:IsA("BasePart") then
+			table.insert(parts, bomb)
+		end
+		for _, child in bomb:GetDescendants() do
+			if child:IsA("BasePart") then
+				table.insert(parts, child)
+			end
+		end
+
+		for _, part in parts do
+			local fromTrans = fromScale < toScale and 1 or 0
+			local toTrans = fromScale < toScale and 0 or 1
+			part.Transparency = fromTrans
+			local tween = TweenService:Create(part, TweenInfo.new(duration, Enum.EasingStyle.Quad), {Transparency = toTrans})
+			table.insert(tweens, tween)
+			tween:Play()
+		end
+	else
+		-- Animate mesh scale (visual only, hitbox unchanged)
+		for _, data in partsWithMeshes do
+			local originalScale = data.mesh.Scale
+			data.mesh.Scale = originalScale * fromScale
+			local tween = TweenService:Create(data.mesh, tweenInfo, {Scale = originalScale * toScale})
+			table.insert(tweens, tween)
+			tween:Play()
+		end
+	end
+
+	if callback and #tweens > 0 then
+		tweens[1].Completed:Connect(callback)
+	elseif callback then
+		task.delay(duration, callback)
+	end
+
+	return tweens
+end
 
 -- Generate random name with random length
 local function generateRandomName()
@@ -443,13 +514,20 @@ local function createBomb(position, owner, mapFolder)
 		end)
 
 		prompt.Triggered:Connect(function(player)
+			-- Immediately disable prompt to prevent delay
+			prompt.Enabled = false
+
 			if not defusingEnabled then return end
 
 			if not hasFuseCutterEquipped(player) then
+				prompt.Enabled = true
 				return
 			end
 
-			if not validateDefuse(player, bomb) then return end
+			if not validateDefuse(player, bomb) then
+				prompt.Enabled = true
+				return
+			end
 
 			local bombData = realBombRegistry[bomb]
 			if not bombData or bombData.defused then return end
@@ -472,10 +550,23 @@ local function createBomb(position, owner, mapFolder)
 				TaskManager.RecordBombDefused(player)
 			end
 
+			-- Stop fuse sound immediately
+			for _, s in mainPart:GetChildren() do
+				if s:IsA("Sound") and s.Looped then
+					s:Stop()
+				end
+			end
+
 			-- Only notify players in the current match
 			NetworkManager.SendToPlayers(matchPlayers, "BombDefused", {position = mainPart.Position})
 
-			Debris:AddItem(bomb, 0.5)
+			-- Animate scale down then destroy
+			animateBombScale(bomb, 1, 0, DEFUSE_ANIM_TIME, function()
+				if bomb and bomb.Parent then
+					bomb:Destroy()
+				end
+			end)
+
 			print("[BombHandler]", player.Name, "defused a bomb")
 		end)
 	end
@@ -489,6 +580,9 @@ local function createBomb(position, owner, mapFolder)
 	elseif team == "B" then
 		table.insert(teamBBombs, bomb)
 	end
+
+	-- Animate scale up on placement
+	animateBombScale(bomb, 0, 1, PLACE_ANIM_TIME)
 
 	anchorBombAfterSettle(bomb)
 
