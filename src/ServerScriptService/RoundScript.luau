@@ -310,17 +310,32 @@ local function onMatchFound(queuedPlayers)
 
 	QueueManager.NotifyMatchFound()
 
+	-- Track if a player left during countdown
+	local playerLeftDuringCountdown = false
+
 	for t = MATCH_FOUND_TIME, 1, -1 do
 		QueueManager.NotifyCountdown(t)
 		task.wait(1)
 
+		-- Check if someone left (but continue countdown)
 		if QueueManager.GetQueueCount() < MIN_PLAYERS then
-			MapManager.Cleanup()
-			QueueManager.DecrementMatchCount()
-			QueueManager.NotifyPlayersGameEnded(matchPlayers)
-			matchPlayers = {}
-			return
+			playerLeftDuringCountdown = true
 		end
+	end
+
+	-- After countdown, check if match should be cancelled
+	if playerLeftDuringCountdown or QueueManager.GetQueueCount() < MIN_PLAYERS then
+		-- Notify remaining players the match was cancelled
+		for _, player in matchPlayers do
+			if player and player.Parent then
+				NetworkManager.Notify(player, "Match cancelled - opponent left")
+			end
+		end
+		MapManager.Cleanup()
+		QueueManager.DecrementMatchCount()
+		QueueManager.NotifyPlayersGameEnded(matchPlayers)
+		matchPlayers = {}
+		return
 	end
 
 	local stillQueued = QueueManager.GetQueuedPlayers()
@@ -337,6 +352,9 @@ local function onMatchFound(queuedPlayers)
 			end
 		end
 
+		-- Track if a player left during loadout
+		local playerLeftDuringLoadout = false
+
 		for t = LOADOUT_TIME, 1, -1 do
 			for _, player in matchPlayers do
 				if player and player.Parent then
@@ -350,13 +368,24 @@ local function onMatchFound(queuedPlayers)
 			end
 			task.wait(1)
 
+			-- Check if someone left (but continue loadout timer)
 			if QueueManager.GetQueueCount() < MIN_PLAYERS then
-				MapManager.Cleanup()
-				QueueManager.DecrementMatchCount()
-				QueueManager.NotifyPlayersGameEnded(matchPlayers)
-				matchPlayers = {}
-				return
+				playerLeftDuringLoadout = true
 			end
+		end
+
+		-- After loadout, check if match should be cancelled
+		if playerLeftDuringLoadout or QueueManager.GetQueueCount() < MIN_PLAYERS then
+			for _, player in matchPlayers do
+				if player and player.Parent then
+					NetworkManager.Notify(player, "Match cancelled - opponent left")
+				end
+			end
+			MapManager.Cleanup()
+			QueueManager.DecrementMatchCount()
+			QueueManager.NotifyPlayersGameEnded(matchPlayers)
+			matchPlayers = {}
+			return
 		end
 	else
 		print("[RoundScript] No players have items, skipping loadout")

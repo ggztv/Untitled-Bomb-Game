@@ -49,6 +49,9 @@ local NotificationText = Notification:WaitForChild("Text")
 local NotificationSubtext = Notification:WaitForChild("Subtext")
 local NotificationScale = Notification:FindFirstChild("UIScale") or Instance.new("UIScale", Notification)
 
+local MicroNotification = GameUI:WaitForChild("MicroNotification")
+local MicroScale = MicroNotification:FindFirstChild("UIScale") or Instance.new("UIScale", MicroNotification)
+
 local BombsLeftFrame = GameUI:WaitForChild("BombsLeft")
 local BombsLeftText = BombsLeftFrame:WaitForChild("BombsLeft")
 
@@ -62,6 +65,7 @@ local PlayButtonLabel = PlayButton:WaitForChild("Label")
 -- Hide everything initially
 PrimaryNotification.Visible = false
 Notification.Visible = false
+MicroNotification.Visible = false
 Topbar.Visible = false
 BombsLeftFrame.Visible = false
 
@@ -346,6 +350,37 @@ local function clearAllNotifications()
 	if notificationVisible then hideNotification() end
 end
 
+-- MicroNotification (small red text for quick failure messages)
+local MICRO_ANIM_TIME = 0.08
+local MICRO_DISPLAY_TIME = 2
+local hideMicroThread = nil
+
+local function showMicroNotification(message)
+	-- Cancel any existing hide thread
+	hideMicroThread = safeCancel(hideMicroThread)
+
+	-- Set text and prepare for animation
+	MicroNotification.Text = message
+	MicroNotification.Visible = true
+	MicroScale.Scale = 0
+
+	-- Play failure sound
+	if SoundManager then
+		SoundManager.Play("Failure")
+	end
+
+	-- Animate scale in (fast pop)
+	tween(MicroScale, {Scale = 1}, MICRO_ANIM_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+	-- Schedule hide
+	hideMicroThread = task.delay(MICRO_DISPLAY_TIME, function()
+		-- Animate scale out
+		local t = tween(MicroScale, {Scale = 0}, MICRO_ANIM_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		t.Completed:Wait()
+		MicroNotification.Visible = false
+	end)
+end
+
 -- Queue state
 local inQueue = false
 local queueStartTime = 0
@@ -466,6 +501,9 @@ ClientUpdate.OnClientEvent:Connect(function(action, data)
 
 	elseif action == "TaskCompleted" then
 		print("[Tasks] Completed:", data.name, "+", data.reward, "credits")
+
+	elseif action == "MicroNotify" then
+		showMicroNotification(data.message)
 	end
 end)
 

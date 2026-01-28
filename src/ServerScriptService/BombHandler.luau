@@ -537,7 +537,7 @@ local function createBomb(position, owner, mapFolder)
 			if not defusingEnabled then return end
 
 			if not hasFuseCutterEquipped(player) then
-				NetworkManager.Notify(player, "Equip Fuse Cutter to defuse!")
+				NetworkManager.SendToClient(player, "MicroNotify", {message = "Equip Fuse Cutter to defuse!"})
 				prompt.Enabled = false
 				task.wait(0.1)
 				prompt.Enabled = true
@@ -707,26 +707,24 @@ local function placeBombAtPosition(player, targetPosition, targetNormal)
 
 	local distance = (rootPart.Position - targetPosition).Magnitude
 	if distance > BOMB_PLACE_RANGE + 5 then
-		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
+		NetworkManager.SendToClient(player, "MicroNotify", {message = "Too far away!"})
 		return false
 	end
 
 	local placed = countPlayerBombs(player)
 	if placed >= BOMBS_PER_PLAYER then
-		NetworkManager.Notify(player, "No bombs left!")
-		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
+		NetworkManager.SendToClient(player, "MicroNotify", {message = "No bombs left!"})
 		return false
 	end
 
 	local mapFolder = getEnemyMapFolder(player)
 	if not mapFolder then
-		NetworkManager.Notify(player, "Not on enemy map!")
-		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
+		NetworkManager.SendToClient(player, "MicroNotify", {message = "Not on enemy map!"})
 		return false
 	end
 
 	if not character:FindFirstChild("Bomb") then
-		NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
+		NetworkManager.SendToClient(player, "MicroNotify", {message = "Equip bomb first!"})
 		return false
 	end
 
@@ -744,8 +742,7 @@ local function placeBombAtPosition(player, targetPosition, targetNormal)
 		if existingBomb and existingBomb.Parent then
 			local existingPos = getBombPosition(existingBomb)
 			if existingPos and (existingPos - spawnPos).Magnitude < BOMB_SIZE * 2 then
-				NetworkManager.Notify(player, "Too close to another bomb!")
-				NetworkManager.SendToClient(player, "PlaySound", {sound = "Failure"})
+				NetworkManager.SendToClient(player, "MicroNotify", {message = "Too close to another bomb!"})
 				return false
 			end
 		end
