@@ -350,36 +350,118 @@ local function clearAllNotifications()
 	if notificationVisible then hideNotification() end
 end
 
--- MicroNotification (small red text for quick failure messages)
+-- MicroNotification (small red text for quick failure messages) with stacking
 local MICRO_ANIM_TIME = 0.08
 local MICRO_DISPLAY_TIME = 2
-local hideMicroThread = nil
+local MICRO_STACK_SPACING = 5
+local MICRO_MAX_STACKS = 5
 
+local microStack = {} -- Active notification clones
+local microQueue = {} -- Queued messages waiting to display
+local microOriginalPosition = MicroNotification.Position
+local microOriginalSize = MicroNotification.AbsoluteSize
+
+-- Forward declare
+local displayMicroNotification
+
+-- Get Y offset for stack position
+local function getMicroStackOffset(stackIndex)
+	return (microOriginalSize.Y + MICRO_STACK_SPACING) * stackIndex
+end
+
+-- Update positions of all stacked notifications
+local function updateMicroStackPositions()
+	for i, entry in ipairs(microStack) do
+		local offset = getMicroStackOffset(i - 1)
+		entry.label.Position = UDim2.new(
+			microOriginalPosition.X.Scale,
+			microOriginalPosition.X.Offset,
+			microOriginalPosition.Y.Scale,
+			microOriginalPosition.Y.Offset - offset
+		)
+	end
+end
+
+-- Remove a notification from the stack
+local function removeMicroFromStack(entry)
+	local index = table.find(microStack, entry)
+	if index then
+		table.remove(microStack, index)
+	end
+
+	-- Animate out and destroy
+	local scale = entry.label:FindFirstChild("UIScale")
+	if scale then
+		local t = tween(scale, {Scale = 0}, MICRO_ANIM_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		t.Completed:Wait()
+	end
+	entry.label:Destroy()
+
+	-- Update remaining stack positions
+	updateMicroStackPositions()
+
+	-- Process queue if there's room
+	if #microStack < MICRO_MAX_STACKS and #microQueue > 0 then
+		local nextMessage = table.remove(microQueue, 1)
+		task.spawn(function()
+			displayMicroNotification(nextMessage)
+		end)
+	end
+end
+
+-- Display a micro notification (internal - doesn't play sound)
+displayMicroNotification = function(message)
+	-- Clone the original notification
+	local clone = MicroNotification:Clone()
+	clone.Text = message
+	clone.Visible = true
+	clone.Parent = MicroNotification.Parent
+
+	-- Add UIScale if not present
+	local scale = clone:FindFirstChild("UIScale")
+	if not scale then
+		scale = Instance.new("UIScale")
+		scale.Parent = clone
+	end
+	scale.Scale = 0
+
+	-- Add to stack
+	local entry = {
+		label = clone,
+		hideThread = nil
+	}
+	table.insert(microStack, entry)
+
+	-- Update all positions
+	updateMicroStackPositions()
+
+	-- Animate scale in (fast pop)
+	tween(scale, {Scale = 1}, MICRO_ANIM_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+	-- Schedule hide
+	entry.hideThread = task.delay(MICRO_DISPLAY_TIME, function()
+		removeMicroFromStack(entry)
+	end)
+end
+
+-- Public function to show micro notification (plays sound immediately)
 local function showMicroNotification(message)
-	-- Cancel any existing hide thread
-	hideMicroThread = safeCancel(hideMicroThread)
-
-	-- Set text and prepare for animation
-	MicroNotification.Text = message
-	MicroNotification.Visible = true
-	MicroScale.Scale = 0
-
-	-- Play failure sound
+	-- Play failure sound immediately (before any queueing)
 	if SoundManager then
 		SoundManager.Play("Failure")
 	end
 
-	-- Animate scale in (fast pop)
-	tween(MicroScale, {Scale = 1}, MICRO_ANIM_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-
-	-- Schedule hide
-	hideMicroThread = task.delay(MICRO_DISPLAY_TIME, function()
-		-- Animate scale out
-		local t = tween(MicroScale, {Scale = 0}, MICRO_ANIM_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-		t.Completed:Wait()
-		MicroNotification.Visible = false
-	end)
+	-- Check if we can display or need to queue
+	if #microStack < MICRO_MAX_STACKS then
+		displayMicroNotification(message)
+	else
+		-- Queue for later
+		table.insert(microQueue, message)
+	end
 end
+
+-- Hide the original template
+MicroNotification.Visible = false
 
 -- Queue state
 local inQueue = false
