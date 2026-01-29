@@ -161,6 +161,13 @@ function MapManager.CreateMatch()
 	positionMap(mapA, posA)
 	positionMap(mapB, posB)
 
+	-- Generate match ID first so we can tag maps
+	local matchId = generateMatchId()
+
+	-- Tag maps with match ID for visibility filtering
+	mapA:SetAttribute("MatchId", matchId)
+	mapB:SetAttribute("MatchId", matchId)
+
 	-- Parent to workspace
 	mapA.Parent = workspace
 	mapB.Parent = workspace
@@ -168,9 +175,6 @@ function MapManager.CreateMatch()
 	-- Find spawn positions
 	local spawnA = findSpawnInMap(mapA)
 	local spawnB = findSpawnInMap(mapB)
-
-	-- Generate match ID and store
-	local matchId = generateMatchId()
 	activeMatches[matchId] = {
 		mapA = mapA,
 		mapB = mapB,
@@ -269,6 +273,13 @@ function MapManager.Place()
 	local posA = getGridPosition(gridRow, 0)
 	local posB = getGridPosition(gridRow, 1)
 
+	-- Generate match ID first so we can tag maps
+	currentMatchId = generateMatchId()
+
+	-- Tag maps with match ID for visibility filtering
+	preloadedMapA:SetAttribute("MatchId", currentMatchId)
+	preloadedMapB:SetAttribute("MatchId", currentMatchId)
+
 	-- Position maps
 	positionMap(preloadedMapA, posA)
 	positionMap(preloadedMapB, posB)
@@ -284,9 +295,6 @@ function MapManager.Place()
 	-- Find spawn positions
 	mapASpawnPos = findSpawnInMap(currentMapA)
 	mapBSpawnPos = findSpawnInMap(currentMapB)
-
-	-- Generate match ID and register
-	currentMatchId = generateMatchId()
 	activeMatches[currentMatchId] = {
 		mapA = currentMapA,
 		mapB = currentMapB,

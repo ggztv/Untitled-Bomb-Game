@@ -1,8 +1,11 @@
 -- LocalScript in StarterPlayerScripts/SoundManager
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local ClientUpdate = ReplicatedStorage:WaitForChild("ClientUpdate")
+
+local LocalPlayer = Players.LocalPlayer
 
 -- Sound IDs (replace with your own)
 local SOUNDS = {
@@ -15,6 +18,9 @@ local SOUNDS = {
 	BombExplode = "rbxassetid://104292424667328",
 	RoundEnd = "rbxassetid://0"
 }
+
+-- Config
+local EXPLOSION_SOUND_RANGE = 300 -- Only play explosion sound if within this range
 
 -- Music playlists
 local LOBBY_MUSIC = {
@@ -170,7 +176,15 @@ ClientUpdate.OnClientEvent:Connect(function(action, data)
 	elseif action == "BombDefused" then
 		playSFX("BombDefuse")
 	elseif action == "BombExploded" then
-		playSFX("BombExplode")
+		-- Only play explosion sound if player is within range
+		local character = LocalPlayer.Character
+		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+		if rootPart and data.position then
+			local distance = (rootPart.Position - data.position).Magnitude
+			if distance <= EXPLOSION_SOUND_RANGE then
+				playSFX("BombExplode")
+			end
+		end
 	elseif action == "PlaySound" then
 		playSFX(data.sound)
 	end
