@@ -460,6 +460,9 @@ local function showMicroNotification(message)
 	end
 end
 
+-- Expose globally so other scripts can show micro notifications
+_G.ShowMicroNotification = showMicroNotification
+
 -- Hide the original template
 MicroNotification.Visible = false
 

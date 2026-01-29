@@ -9,13 +9,6 @@ local clickSound = tool:FindFirstChild("Click")
 -- Client-side config (should match server)
 local BOMB_PLACE_RANGE = 12
 
--- Wait for SoundManager
-local SoundManager
-task.spawn(function()
-	repeat task.wait() until _G.SoundManager
-	SoundManager = _G.SoundManager
-end)
-
 -- Play click sound on successful placement
 clientUpdate.OnClientEvent:Connect(function(action, data)
 	if action == "BombPlaced" and clickSound then
@@ -52,11 +45,10 @@ tool.Activated:Connect(function()
 	-- Client-side distance check for immediate feedback (no server round-trip)
 	local distance = (rootPart.Position - hitPos).Magnitude
 	if distance > BOMB_PLACE_RANGE + 5 then
-		-- Play failure sound immediately - no need to wait for server
-		if SoundManager then
-			SoundManager.Play("Failure")
+		-- Show failure immediately - no need to wait for server
+		if _G.ShowMicroNotification then
+			_G.ShowMicroNotification("Too far away!")
 		end
-		-- Don't send to server - we know it will fail
 		return
 	end
 
