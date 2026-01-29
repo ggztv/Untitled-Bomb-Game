@@ -2,7 +2,6 @@ local tool = script.Parent
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 local remote = game.ReplicatedStorage:WaitForChild("ServerRequest")
-local clickSound = tool:FindFirstChild("Click")
 
 tool.Activated:Connect(function()
 	if not player.Character then return end
@@ -28,9 +27,9 @@ tool.Activated:Connect(function()
 		end
 	end
 
-	if clickSound then
-		clickSound:Play()
-	end
+	-- Sound is handled by server response:
+	-- Success: BombPlaced event plays plant sound
+	-- Failure: MicroNotify plays failure sound
 
 	remote:FireServer("PlaceBomb", {
 		targetPosition = hitPos,
