@@ -187,6 +187,8 @@ local function resetGame()
 
 	for _, player in oldMatchPlayers do
 		if player and player.Parent then
+			-- Clear match ID for visibility filtering
+			NetworkManager.SendToClient(player, "MatchId", {matchId = nil})
 			NetworkManager.SendToClient(player, "Round", {
 				phase = "Waiting",
 				timeLeft = 0,
@@ -302,11 +304,14 @@ local function onMatchFound(queuedPlayers)
 	for _, player in matchPlayers do
 		if player and player.Parent then
 			QueueManager.AssignPlayerToMatch(player, currentMatchId)
+			-- Send match ID to client for visibility filtering
+			NetworkManager.SendToClient(player, "MatchId", {matchId = currentMatchId})
 		end
 	end
 
 	local mapA, mapB = MapManager.GetMaps()
 	BombHandler.SetMaps(mapA, mapB)
+	BombHandler.SetMatchId(currentMatchId)
 
 	QueueManager.NotifyMatchFound()
 

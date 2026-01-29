@@ -34,7 +34,8 @@ end
 function SpawnManager.AssignPlayerToMap(player, mapFolder, spawnPosition)
 	playerMapAssignments[player] = {
 		map = mapFolder,
-		spawn = spawnPosition
+		spawn = spawnPosition,
+		matchId = mapFolder and mapFolder:GetAttribute("MatchId")
 	}
 end
 
@@ -234,6 +235,12 @@ function SpawnManager.SpawnAtLobby(player)
 		player:LoadCharacter()
 		character = player.CharacterAdded:Wait()
 	end
+
+	-- Clear match ID from character for visibility
+	if character then
+		character:SetAttribute("MatchId", nil)
+	end
+
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
 	if rootPart and lobbySpawnPosition then
 		rootPart.CFrame = CFrame.new(lobbySpawnPosition + Vector3.new(0, 5, 0))
@@ -244,6 +251,9 @@ end
 function SpawnManager.SpawnTeamAt(team, position, teamName, mapFolder)
 	if not team or #team == 0 then return end
 	print("[SpawnManager] Spawning", teamName or "team", "at", position)
+
+	-- Get match ID from map for visibility tagging
+	local matchId = mapFolder and mapFolder:GetAttribute("MatchId")
 
 	for i, player in team do
 		if not player or not player.Parent then continue end
@@ -260,6 +270,12 @@ function SpawnManager.SpawnTeamAt(team, position, teamName, mapFolder)
 			player:LoadCharacter()
 			character = player.CharacterAdded:Wait()
 		end
+
+		-- Tag character with match ID for visibility filtering
+		if matchId and character then
+			character:SetAttribute("MatchId", matchId)
+		end
+
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
 		if rootPart then
 			local offset = Vector3.new((i - 1) * 3, 5, 0)
@@ -306,6 +322,11 @@ local function onCharacterAdded(player, character)
 		if assignment and assignment.spawn then
 			-- Clear fully spawned flag during respawn to prevent boundary check during teleport
 			playerFullySpawned[player] = nil
+
+			-- Re-apply match ID to respawned character for visibility
+			if assignment.matchId then
+				character:SetAttribute("MatchId", assignment.matchId)
+			end
 
 			task.wait(0.1)
 			local rootPart = character:FindFirstChild("HumanoidRootPart")

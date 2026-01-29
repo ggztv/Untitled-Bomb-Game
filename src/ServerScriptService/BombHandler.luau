@@ -53,6 +53,7 @@ local mapAFolder = nil
 local mapBFolder = nil
 local placementCooldowns = {}
 local matchPlayers = {} -- Players in current match (for targeted broadcasts)
+local currentMatchId = nil -- Current match ID for tagging bombs
 
 -- Anti-cheat state
 local realBombRegistry = {}
@@ -500,6 +501,11 @@ local function createBomb(position, owner, mapFolder)
 
 	bomb.Parent = getRandomFolder()
 
+	-- Tag bomb with match ID for visibility filtering
+	if currentMatchId then
+		bomb:SetAttribute("MatchId", currentMatchId)
+	end
+
 	realBombRegistry[bomb] = {
 		owner = owner,
 		map = mapFolder,
@@ -809,6 +815,10 @@ _G.BombHandler.SetMatchPlayers = function(players)
 	matchPlayers = players or {}
 end
 
+_G.BombHandler.SetMatchId = function(matchId)
+	currentMatchId = matchId
+end
+
 _G.BombHandler.SetPhase = function(phase)
 	currentPhase = phase
 	print("[BombHandler] Phase:", phase)
@@ -994,6 +1004,7 @@ _G.BombHandler.Reset = function()
 	mapAFolder = nil
 	mapBFolder = nil
 	matchPlayers = {}
+	currentMatchId = nil
 
 	for _, player in Players:GetPlayers() do
 		local backpack = player:FindFirstChild("Backpack")
