@@ -2,6 +2,7 @@
 -- Hides maps, bombs, and players from other matches
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
@@ -10,109 +11,145 @@ local ClientUpdate = ReplicatedStorage:WaitForChild("ClientUpdate")
 -- Current match ID (nil when in lobby)
 local currentMatchId = nil
 
--- Track all objects we've modified for cleanup
-local modifiedObjects = {}
+-- Track objects that have MatchId attribute (map folders, bombs, characters)
+local trackedObjects = {} -- {[obj] = matchId}
 
--- Set transparency of all parts in an instance
-local function setInstanceTransparency(instance, transparency)
-	if instance:IsA("BasePart") then
-		instance.LocalTransparencyModifier = transparency
+-- Get the MatchId for an object (checks object and ancestors)
+local function getObjectMatchId(obj)
+	-- First check the object itself
+	local matchId = obj:GetAttribute("MatchId")
+	if matchId then return matchId end
+
+	-- Check ancestors (for parts inside map folders)
+	local parent = obj.Parent
+	while parent and parent ~= workspace do
+		matchId = parent:GetAttribute("MatchId")
+		if matchId then return matchId end
+		parent = parent.Parent
 	end
-	for _, child in instance:GetDescendants() do
-		if child:IsA("BasePart") then
-			child.LocalTransparencyModifier = transparency
-		elseif child:IsA("Decal") or child:IsA("Texture") then
-			-- For decals/textures, we need to track original transparency
-			if transparency > 0 then
-				if not child:GetAttribute("_OriginalTransparency") then
-					child:SetAttribute("_OriginalTransparency", child.Transparency)
-				end
-				child.Transparency = 1
-			else
-				local original = child:GetAttribute("_OriginalTransparency")
-				if original then
-					child.Transparency = original
-					child:SetAttribute("_OriginalTransparency", nil)
-				end
-			end
-		end
-	end
+
+	return nil
 end
 
--- Check if an object should be hidden
-local function shouldHideObject(obj)
-	-- Never hide local player's own character
-	if obj == LocalPlayer.Character then
-		return false
+-- Check if an object should be hidden based on match ID
+local function shouldHideMatchId(matchId)
+	if matchId == nil then
+		return false -- No match ID = lobby content, always visible
 	end
 
-	local objMatchId = obj:GetAttribute("MatchId")
-
-	-- Object has no match ID = lobby content, always visible
-	if objMatchId == nil then
-		return false
-	end
-
-	-- If we're in lobby (no match), hide all match objects
 	if currentMatchId == nil then
-		return true
+		return true -- In lobby, hide all match content
 	end
 
-	-- Hide if match ID doesn't match ours
-	return objMatchId ~= currentMatchId
+	return matchId ~= currentMatchId -- Hide if different match
 end
 
--- Process visibility for an object
-local function processObjectVisibility(obj)
-	local shouldHide = shouldHideObject(obj)
+-- Set transparency on a single BasePart
+local function setPartTransparency(part, hidden)
+	if not part:IsA("BasePart") then return end
 
-	if shouldHide then
-		if not modifiedObjects[obj] then
-			modifiedObjects[obj] = true
-			setInstanceTransparency(obj, 1)
-		end
-	else
-		if modifiedObjects[obj] then
-			modifiedObjects[obj] = nil
-			setInstanceTransparency(obj, 0)
+	-- Never hide local player's parts
+	local character = LocalPlayer.Character
+	if character and part:IsDescendantOf(character) then
+		return
+	end
+
+	part.LocalTransparencyModifier = hidden and 1 or 0
+end
+
+-- Set transparency on an instance and all its descendants
+local function setInstanceHidden(instance, hidden)
+	if instance:IsA("BasePart") then
+		setPartTransparency(instance, hidden)
+	end
+
+	for _, descendant in instance:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			setPartTransparency(descendant, hidden)
 		end
 	end
 end
 
--- Reset all modified objects to visible
-local function resetAllObjects()
-	for obj, _ in modifiedObjects do
+-- Update visibility for a tracked object
+local function updateTrackedObjectVisibility(obj)
+	local matchId = trackedObjects[obj]
+	if not matchId then return end
+
+	local shouldHide = shouldHideMatchId(matchId)
+	setInstanceHidden(obj, shouldHide)
+end
+
+-- Update visibility for ALL tracked objects
+local function updateAllVisibility()
+	print("[VisibilityManager] Updating all visibility, currentMatchId:", currentMatchId or "nil")
+	for obj, matchId in trackedObjects do
 		if obj and obj.Parent then
-			setInstanceTransparency(obj, 0)
+			local shouldHide = shouldHideMatchId(matchId)
+			setInstanceHidden(obj, shouldHide)
 		end
 	end
-	modifiedObjects = {}
 end
 
--- Scan workspace for all objects with MatchId attribute
-local function scanWorkspace()
-	print("[VisibilityManager] Scanning workspace, currentMatchId:", currentMatchId or "nil")
-	local count = 0
+-- Start tracking an object with MatchId
+local function trackObject(obj)
+	local matchId = obj:GetAttribute("MatchId")
+	if not matchId then return end
 
+	if not trackedObjects[obj] then
+		print("[VisibilityManager] Tracking object:", obj:GetFullName(), "MatchId:", matchId)
+		trackedObjects[obj] = matchId
+
+		-- Apply initial visibility
+		local shouldHide = shouldHideMatchId(matchId)
+		setInstanceHidden(obj, shouldHide)
+
+		-- Listen for new descendants being added to this object
+		obj.DescendantAdded:Connect(function(descendant)
+			if descendant:IsA("BasePart") then
+				local shouldHide = shouldHideMatchId(trackedObjects[obj])
+				setPartTransparency(descendant, shouldHide)
+			end
+		end)
+	end
+end
+
+-- Stop tracking an object
+local function untrackObject(obj)
+	if trackedObjects[obj] then
+		-- Make visible before removing
+		setInstanceHidden(obj, false)
+		trackedObjects[obj] = nil
+	end
+end
+
+-- Scan workspace for objects with MatchId
+local function scanWorkspace()
+	local count = 0
 	for _, obj in workspace:GetDescendants() do
 		local matchId = obj:GetAttribute("MatchId")
-		if matchId ~= nil then
+		if matchId then
+			trackObject(obj)
 			count = count + 1
-			processObjectVisibility(obj)
 		end
 	end
-
-	print("[VisibilityManager] Found", count, "objects with MatchId")
+	print("[VisibilityManager] Scan complete, tracking", count, "objects")
 end
 
--- Handle new objects being added
+-- Handle new objects being added to workspace
 workspace.DescendantAdded:Connect(function(obj)
 	-- Wait a frame for attributes to be set
 	task.defer(function()
 		if obj and obj.Parent then
 			local matchId = obj:GetAttribute("MatchId")
-			if matchId ~= nil then
-				processObjectVisibility(obj)
+			if matchId then
+				trackObject(obj)
+			else
+				-- Check if this part belongs to a tracked parent
+				local parentMatchId = getObjectMatchId(obj)
+				if parentMatchId and obj:IsA("BasePart") then
+					local shouldHide = shouldHideMatchId(parentMatchId)
+					setPartTransparency(obj, shouldHide)
+				end
 			end
 		end
 	end)
@@ -120,27 +157,36 @@ end)
 
 -- Handle objects being removed
 workspace.DescendantRemoving:Connect(function(obj)
-	modifiedObjects[obj] = nil
+	trackedObjects[obj] = nil
 end)
 
--- Handle attribute changes on existing objects
-local function setupAttributeListener(obj)
+-- Handle attribute changes
+workspace.DescendantAdded:Connect(function(obj)
 	obj.AttributeChanged:Connect(function(attrName)
 		if attrName == "MatchId" then
-			processObjectVisibility(obj)
+			local matchId = obj:GetAttribute("MatchId")
+			if matchId then
+				trackObject(obj)
+			else
+				untrackObject(obj)
+			end
+		end
+	end)
+end)
+
+-- Also listen for attribute changes on existing objects
+for _, obj in workspace:GetDescendants() do
+	obj.AttributeChanged:Connect(function(attrName)
+		if attrName == "MatchId" then
+			local matchId = obj:GetAttribute("MatchId")
+			if matchId then
+				trackObject(obj)
+			else
+				untrackObject(obj)
+			end
 		end
 	end)
 end
-
--- Setup listeners for existing objects
-for _, obj in workspace:GetDescendants() do
-	setupAttributeListener(obj)
-end
-
--- Setup listeners for new objects
-workspace.DescendantAdded:Connect(function(obj)
-	setupAttributeListener(obj)
-end)
 
 -- Listen for match ID updates from server
 ClientUpdate.OnClientEvent:Connect(function(action, data)
@@ -149,19 +195,30 @@ ClientUpdate.OnClientEvent:Connect(function(action, data)
 
 		if currentMatchId ~= newMatchId then
 			print("[VisibilityManager] Match ID changing from", currentMatchId or "nil", "to", newMatchId or "nil")
-
-			-- Reset all hidden objects before changing match ID
-			resetAllObjects()
-
 			currentMatchId = newMatchId
 
-			-- Re-scan with new match ID
-			scanWorkspace()
+			-- Update visibility for all tracked objects
+			updateAllVisibility()
 		end
 	end
 end)
 
--- Initial scan after short delay to let objects load
+-- Periodic refresh to catch any missed parts (runs every 2 seconds)
+task.spawn(function()
+	while true do
+		task.wait(2)
+		for obj, matchId in trackedObjects do
+			if obj and obj.Parent then
+				local shouldHide = shouldHideMatchId(matchId)
+				setInstanceHidden(obj, shouldHide)
+			else
+				trackedObjects[obj] = nil
+			end
+		end
+	end
+end)
+
+-- Initial scan after short delay
 task.defer(function()
 	task.wait(0.5)
 	print("[VisibilityManager] Initial scan...")
