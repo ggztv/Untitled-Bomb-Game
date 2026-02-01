@@ -199,14 +199,16 @@ ClientUpdate.OnClientEvent:Connect(function(action, data)
 
 			-- Update visibility for all tracked objects
 			updateAllVisibility()
+
+			-- Schedule a refresh to catch late-loading parts
+			scheduleRefresh()
 		end
 	end
 end)
 
--- Periodic refresh to catch any missed parts (runs every 2 seconds)
-task.spawn(function()
-	while true do
-		task.wait(2)
+-- One-time refresh after match change (catches any parts that loaded late)
+local function scheduleRefresh()
+	task.delay(1, function()
 		for obj, matchId in trackedObjects do
 			if obj and obj.Parent then
 				local shouldHide = shouldHideMatchId(matchId)
@@ -215,8 +217,8 @@ task.spawn(function()
 				trackedObjects[obj] = nil
 			end
 		end
-	end
-end)
+	end)
+end
 
 -- Initial scan after short delay
 task.defer(function()

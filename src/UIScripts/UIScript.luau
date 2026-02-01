@@ -444,10 +444,10 @@ displayMicroNotification = function(message)
 	end)
 end
 
--- Public function to show micro notification (plays sound immediately)
-local function showMicroNotification(message)
-	-- Play failure sound immediately (before any queueing)
-	if SoundManager then
+-- Public function to show micro notification (optionally plays failure sound)
+local function showMicroNotification(message, playFailSound)
+	-- Play failure sound immediately if requested (before any queueing)
+	if playFailSound and SoundManager then
 		SoundManager.Play("Failure")
 	end
 

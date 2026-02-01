@@ -762,8 +762,8 @@ local function placeBombAtPosition(player, targetPosition, targetNormal)
 
 	local bombPos = getBombPosition(bomb) or spawnPos
 
-	-- Only notify players in the current match
-	NetworkManager.SendToPlayers(matchPlayers, "BombPlaced", {position = bombPos})
+	-- Only notify the placing player (for click sound)
+	NetworkManager.SendToClient(player, "BombPlaced", {position = bombPos})
 	updateBombCount(player)
 	checkAllBombsPlanted()
 
@@ -930,42 +930,52 @@ _G.BombHandler.DisableDefusing = function()
 	end
 end
 
-_G.BombHandler.AllDefusedOnMapA = function()
-	return #teamABombs == 0
-end
+-- NOTE: teamABombs = bombs planted BY Team A, which are ON Map B
+--       teamBBombs = bombs planted BY Team B, which are ON Map A
 
-_G.BombHandler.AllDefusedOnMapB = function()
+_G.BombHandler.AllDefusedOnMapA = function()
+	-- Map A has bombs from Team B
 	return #teamBBombs == 0
 end
 
-_G.BombHandler.GetRemainingOnMapA = function()
-	return #teamABombs
+_G.BombHandler.AllDefusedOnMapB = function()
+	-- Map B has bombs from Team A
+	return #teamABombs == 0
 end
 
-_G.BombHandler.GetRemainingOnMapB = function()
+_G.BombHandler.GetRemainingOnMapA = function()
+	-- Map A has bombs from Team B
 	return #teamBBombs
 end
 
+_G.BombHandler.GetRemainingOnMapB = function()
+	-- Map B has bombs from Team A
+	return #teamABombs
+end
+
 _G.BombHandler.GetInitialBombCounts = function()
-	return initialBombCountA, initialBombCountB
+	-- Returns (bombs on Map A, bombs on Map B)
+	return initialBombCountB, initialBombCountA
 end
 
 _G.BombHandler.ExplodeMapA = function()
-	for _, bomb in teamABombs do
-		if bomb and bomb.Parent then
-			explodeBomb(bomb)
-		end
-	end
-	teamABombs = {}
-end
-
-_G.BombHandler.ExplodeMapB = function()
+	-- Map A has bombs from Team B
 	for _, bomb in teamBBombs do
 		if bomb and bomb.Parent then
 			explodeBomb(bomb)
 		end
 	end
 	teamBBombs = {}
+end
+
+_G.BombHandler.ExplodeMapB = function()
+	-- Map B has bombs from Team A
+	for _, bomb in teamABombs do
+		if bomb and bomb.Parent then
+			explodeBomb(bomb)
+		end
+	end
+	teamABombs = {}
 end
 
 _G.BombHandler.Reset = function()

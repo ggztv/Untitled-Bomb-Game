@@ -45,9 +45,9 @@ tool.Activated:Connect(function()
 	-- Client-side distance check for immediate feedback (no server round-trip)
 	local distance = (rootPart.Position - hitPos).Magnitude
 	if distance > BOMB_PLACE_RANGE + 5 then
-		-- Show failure immediately - no need to wait for server
+		-- Show failure immediately with sound - no need to wait for server
 		if _G.ShowMicroNotification then
-			_G.ShowMicroNotification("Too far away!")
+			_G.ShowMicroNotification("Too far away!", true) -- true = play failure sound
 		end
 		return
 	end
